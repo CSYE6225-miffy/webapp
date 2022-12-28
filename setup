@@ -1,0 +1,64 @@
+#!/bin/bash
+set -e
+set -x
+
+#Update OS
+sudo add-apt-repository universe
+sudo apt-get clean
+sudo apt-get update
+sudo apt-get upgrade -y
+sleep 30
+#Install python3.8
+sudo apt-get install -y python3
+sudo apt-get install -y python3-pip
+sudo pip3 install flask mysql-connector boto3 statsd
+sudo pip3 install mysql-connector-python
+sudo pip3 install Flask-HTTPAuth
+
+##Install MySQL
+#sleep 15
+#sudo apt-get install -y mysql-server
+#sudo systemctl start mysql
+#sudo mysql <<'EOF'
+#CREATE USER 'ubuntu'@'localhost' IDENTIFIED BY 'test1234';
+#GRANT ALL PRIVILEGES ON * . * TO 'ubuntu'@'localhost';
+#FLUSH PRIVILEGES;
+#EOF
+
+sleep 15
+#Update permission and file ownership on the copied application artifacts
+sleep 5
+echo "Installing unzip"
+sudo apt-get install -y unzip
+#Unzip file
+sleep 5
+unzip /home/ubuntu/webapp.zip -d /home/ubuntu/webapp
+sudo rm -rf /home/ubuntu/webapp.zip
+# Install and test the webapp server
+sleep 5
+cd /home/ubuntu/webapp
+sudo PYTHONPATH=/home/ubuntu/webapp/src python3 ./app_verifier.py
+sleep 10
+
+# install and config CloudWatch Agent
+wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+sudo apt install ./amazon-cloudwatch-agent.deb
+
+
+## install CodeDeploy
+## This installs the CodeDeploy agent and its prerequisites on Ubuntu 22.04.
+#
+#sudo apt-get update
+#sudo apt-get install ruby-full ruby-webrick wget -y
+#cd /home/ubuntu/webapp
+#wget https://aws-codedeploy-us-west-2.s3.us-west-2.amazonaws.com/releases/codedeploy-agent_1.3.2-1902_all.deb
+#mkdir codedeploy-agent_1.3.2-1902_ubuntu22
+#dpkg-deb -R codedeploy-agent_1.3.2-1902_all.deb codedeploy-agent_1.3.2-1902_ubuntu22
+#sed 's/Depends:.*/Depends:ruby3.0/' -i ./codedeploy-agent_1.3.2-1902_ubuntu22/DEBIAN/control
+#dpkg-deb -b codedeploy-agent_1.3.2-1902_ubuntu22/
+#sudo dpkg -i codedeploy-agent_1.3.2-1902_ubuntu22.deb
+#systemctl list-units --type=service | grep codedeploy
+#sudo service codedeploy-agent status
+
+
+
