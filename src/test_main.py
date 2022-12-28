@@ -13,7 +13,7 @@ DUMMY_USER_INFO = {
     "username": "jeuuddffd@example.com",
     "account_created": "2022-10-12 22:34:39",
     "account_updated": "2022-10-12 22:34:39",
-    "verified": "TRUE"
+    "verified": True
 }
 
 
@@ -42,23 +42,23 @@ class TestMain(AppTestCase):
 
         self.assertEqual(400, resp.status_code)
 
-    # @patch.object(
-    #     DB, 'execute_and_get_result', return_value=[DUMMY_USER_INFO]
-    # )
-    # def test_3(self, *_: MagicMock):
-    #     resp = self.client.get("/v1/account/f0b6600219ff6416fe01cefb90735c94", data=json.dumps({}))
-    #
-    #     self.assertEqual(200, resp.status_code)
-    #
-    # @patch.object(DB, 'execute', return_value=True)
-    # @patch.object(DB, 'execute_and_get_result', return_value=[DUMMY_USER_INFO])
-    # def test_4(self, mock_execute_and_get_result: MagicMock, mock_db_execute: MagicMock, mock_load_credentials: MagicMock):
-    #     resp = self.client.put("/v1/account/f0b6600219ff6416fe01cefb90735c94", data=json.dumps({'username': 'yyds'}))
-    #
-    #     self.assertEqual(204, resp.status_code)
-    #     mock_db_execute.assert_called_once_with(
-    #         'update webapp set username="yyds" where id="f0b6600219ff6416fe01cefb90735c94"'
-    #     )
+    @patch.object(
+        DB, 'execute_and_get_result', return_value=[DUMMY_USER_INFO]
+    )
+    def test_3(self, *_: MagicMock):
+        resp = self.client.get("/v1/account/123456", data=json.dumps({}))
+
+        self.assertEqual(200, resp.status_code)
+
+    @patch.object(DB, 'execute', return_value=True)
+    @patch.object(DB, 'execute_and_get_result', return_value=[DUMMY_USER_INFO])
+    def test_4(self, mock_execute_and_get_result: MagicMock, mock_db_execute: MagicMock, mock_load_credentials: MagicMock):
+        resp = self.client.put("/v1/account/123456", data=json.dumps({'username': 'yyds'}))
+
+        self.assertEqual(204, resp.status_code)
+        mock_db_execute.assert_called_once_with(
+            'update webapp set username="yyds" where id="123456"'
+        )
 
 
 if __name__ == "__main__":

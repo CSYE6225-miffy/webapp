@@ -1,6 +1,6 @@
 
-This is a simple web application using Python Flask. test
-Below are the steps required to get this working on a base linux system.  test
+This is a simple web application using Python Flask. 
+Below are the steps required to get this working on a base linux system.  
 
 Install all required dependencies
 Install and Configure Web Server
