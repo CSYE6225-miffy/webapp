@@ -1,0 +1,106 @@
+# This workflows will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: CI Push
+
+env:
+  ARTIFACT_NAME: webapp.zip
+  AWS_REGION: us-west-2
+  LaunchTemplateName: asg_launch_config
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  continuous_integration:
+    runs-on: ubuntu-latest
+    name: Build AMI only on merge section
+    steps:
+    # Set Python version
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.8"
+    # Install dependencies:
+    - name: install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flask mysql-connector-python bcrypt jwt pytest pytest-cov flask_httpauth boto3 statsd
+
+    # Validate Template
+    - name: Validate Template
+      uses: hashicorp/packer-github-actions@master
+      with:
+        command: validate
+        arguments: -syntax-only
+        target: ./packer/ami.pkr.hcl
+
+    # 1. Run the unit test.
+    - name: Run unit tests
+      run: |
+        python -m pytest
+    # 2. Build the application artifact (war, jar, zip, etc.).
+    - name: Build the bundle
+      run: |
+        zip -r webapp.zip ./
+
+   # 3. Configure AWS Credentials test
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-region: ${{ env.AWS_REGION }}
+        aws-access-key-id: ${{ secrets.AWS_DEV_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_DEV_SECRET_ACCESS_KEY }}
+
+  # 4. Build the AMI with application dependencies and set up the application by copying the application artifacts and the configuration files.
+    - name: Build the AMI
+      run: |
+        packer validate ./packer/ami.pkr.hcl
+        AWS_PROFILE=dev packer build ./packer/ami.pkr.hcl
+
+  # 5. Get Latest AMI ID
+    - name: Get Latest AMI ID
+      run: |
+        AMI_ID=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
+        echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
+
+  # 6. Configure AWS Demo Account Credentials
+    - name: Configure AWS Demo Account Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_DEMO_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_DEMO_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+  # 7. Create a new Launch Template with the AWS CLI
+    - name: Create a new Launch Template with the AWS CLI
+      run: |
+        aws ec2 create-launch-template-version \
+        --launch-template-name ${{ env.LaunchTemplateName }} \
+        --version-description WebVersion2 \
+        --source-version 1 \
+        --launch-template-data "ImageId=${{ env.AMI_ID }}"
+
+  # 8. Update the Autoscaling Group to use the latest Launch Template
+    - name: Update the Autoscaling Group to use the latest Launch Template
+      run: |
+        aws autoscaling update-auto-scaling-group --auto-scaling-group-name ${{ secrets.AutoScaling_Group_Name }} \
+        --launch-template LaunchTemplateName=${{ env.LaunchTemplateName }},Version='$Latest'
+
+  # 9. Update the Autoscaling Group to use the latest Launch Template
+    - name: Update the Autoscaling Group to use the latest Launch Template
+      run: |
+        aws autoscaling start-instance-refresh --auto-scaling-group-name ${{ secrets.AutoScaling_Group_Name }}
+        
+#    - name: Copy Artifact to S3
+#      run: |
+#        aws s3 sync ./codedeploy_artifact s3://${{ secrets.CODEDEPLOY_BUCKET }}
+#     - name: Call Codedeploy API
+#       run: |
+#         output=$(aws deploy create-deployment --application-name ${{ env.APPLICATION_NAME }} --deployment-group-name ${{ env.DEPLOYMENT_GROUP_NAME }} --s3-location bucket=${{ secrets.CODEDEPLOY_BUCKET }},key=webapp.zip,bundleType=zip --region us-west-2 --output json)
+#         echo $output
+#         dId=$(echo $output | jq -r '.deploymentId')
+#         aws deploy wait deployment-successful --deployment-id $dId
